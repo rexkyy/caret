@@ -334,11 +334,13 @@ train.default <- function(x, y,
     models <- method
     method <- "custom"
   } else {
+    # HERE!!!!! get model info 에서 모델에 사용하는 function들 정의됨. -> KernelKnn에 대한 modelinfo 만들면 됨!!
     models <- getModelInfo(method, regex = FALSE)[[1]]
     if (length(models) == 0)
       stop(paste("Model", method, "is not in caret's built-in library"), call. = FALSE)
   }
-  checkInstall(models$library)
+  # HERE!!!!! ?? Useless if NULL
+  checkInstall(models$library) 
   for(i in seq(along = models$library)) do.call("requireNamespaceQuietStop", list(package = models$library[i]))
   if(any(names(models) == "check") && is.function(models$check)) {
     software_check <- models$check(models$library)
