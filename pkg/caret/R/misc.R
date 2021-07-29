@@ -56,7 +56,7 @@ evalSummaryFunction <- function(y, wts = NULL, perf = NULL, ctrl, lev, metric, m
     testOutput <-cbind(testOutput, perf)
   }
 
-  if(ctrl$classProbs) {
+  if(ctrl$classProbs) { ##### 이거는 어떻게 적용되어서 나온거지.. trControl$classProbs가 어디서 나오는지
     for(i in seq(along = lev)) testOutput[, lev[i]] <- runif(nrow(testOutput))
     testOutput[, lev] <- t(apply(testOutput[, lev], 1, function(x) x/sum(x)))
   } else {
@@ -65,7 +65,7 @@ evalSummaryFunction <- function(y, wts = NULL, perf = NULL, ctrl, lev, metric, m
   }
   if(!is.null(wts)) testOutput$weights <- sample(wts, min(10, length(wts)))
   testOutput$rowIndex <- sample(1:n, size = nrow(testOutput))
-  ctrl$summaryFunction(testOutput, lev, method)
+  ctrl$summaryFunction(testOutput, lev, method) # Use 'postResample' function
 }
 
 

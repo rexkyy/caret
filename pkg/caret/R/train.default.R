@@ -325,6 +325,7 @@ train.default <- function(x, y,
   }
 
   if(is.list(method)) {
+    # method를 여러가지로 넣을 수 있음?? 어떻게 동작함???
     minNames <- c("library", "type", "parameters", "grid",
                   "fit", "predict", "prob")
     nameCheck <- minNames %in% names(method)
@@ -334,7 +335,8 @@ train.default <- function(x, y,
     models <- method
     method <- "custom"
   } else {
-    # HERE!!!!! get model info 에서 모델에 사용하는 function들 정의됨. -> KernelKnn에 대한 modelinfo 만들면 됨!!
+    # HERE!!!!! get model info 에서 모델에 사용하는 function들 정의됨.
+    # KernelKnn에 대한 modelinfo 만들면 됨!!
     models <- getModelInfo(method, regex = FALSE)[[1]]
     if (length(models) == 0)
       stop(paste("Model", method, "is not in caret's built-in library"), call. = FALSE)
@@ -350,6 +352,9 @@ train.default <- function(x, y,
   paramNames <- as.character(models$parameters$parameter)
 
   funcCall <- match.call(expand.dots = TRUE)
+  ### model type 을 여기서 결정, 만약 regression option 이 있는 경우에는 어떻게 결정?
+  # 1. type을 정해주는경우
+  # 2. regression 과 classification 둘 다 있어서 종속변수에 따라 둘 중 하나 선택하게 됨
   modelType <- get_model_type(y)
   if(!(modelType %in% models$type)) stop(paste("wrong model type for", tolower(modelType)), call. = FALSE)
 
@@ -424,6 +429,8 @@ train.default <- function(x, y,
       }
     }
   } else {
+    
+    # model type 이 Regression 일 경우!!!!
     if(metric %in% c("Accuracy", "Kappa"))
       stop(paste("Metric", metric, "not applicable for regression models"), call. = FALSE)
     classLevels <- NA
@@ -432,12 +439,15 @@ train.default <- function(x, y,
       trControl$classProbs <- FALSE
     }
   }
-
+  ###### 여기까지 입력값 체크 
 
   if(trControl$method == "oob" & is.null(models$oob))
     stop("Out of bag estimates are not implemented for this model", call. = FALSE)
 
   ## If they don't exist, make the data partitions for the resampling iterations.
+  ## Resampling 방법에 따라서 데이터가 분할되어서 나옴. 모든 패키지에 적용가능!!!
+  # trainControl 결과에서 index로 resample여부 결정 & resample 방법 정의하기 위해 method 쓰임
+  # trControl 에 method, index, indexOut 이 달려서 나옴
   trControl <- withr::with_seed(
     rs_seed,
     make_resamples(trControl, outcome = y)
@@ -457,9 +467,15 @@ train.default <- function(x, y,
     if(length(trControl$preProcOptions) > 0) ppOpt <- c(ppOpt,trControl$preProcOptions)
   } else ppOpt <- NULL
 
+  
+  #### Search method 적용하는 부분!!!
   ## If no default training grid is specified, get one. We have to pass in the formula
   ## and data for some models (rpart, pam, etc - see manual for more details)
+  ### Grid를 정해 범위를 expand 해서 옵션으로 넣기 'expand.grid'함수를 써야함함
   if(is.null(tuneGrid)) {
+    # 만약 tuneGrid가 NULL이고 
+    # preprocessing 옵션이 존재하고 hyperparameter가 2개 이상이면 진행.
+    # 그렇지 않으면 전처리만 진행하고 기본 grid function 사용. 
     if(!is.null(ppOpt) && length(models$parameters$parameter) > 1 &&
          as.character(models$parameters$parameter) != "parameter") {
       pp <- list(method = ppOpt$options)
@@ -513,8 +529,8 @@ train.default <- function(x, y,
   ## In case prediction bounds are used, compute the limits. For now,
   ## store these in the control object since that gets passed everywhere
   trControl$yLimits <- if(is.numeric(y)) get_range(y) else NULL
-
-
+  ##### 여기까지 parameter, train/validation/test, analysis option 전체 셋팅 끝!!
+  
   if(trControl$method != "none") {
     ##------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -605,7 +621,8 @@ train.default <- function(x, y,
     num_rs <- if(trControl$method != "oob") length(trControl$index) else 1L
     if(trControl$method %in% c("boot632", "optimism_boot", "boot_all")) num_rs <- num_rs + 1L
     ## Set or check the seeds when needed
-    if(is.null(trControl$seeds) || all(is.na(trControl$seeds)))  {
+    if(is.null(trControl$seeds) || all(is.na(trControl$seeds))) {
+      ### seeds 는 어디서 할당된거지??
       seeds <- sample.int(n = 1000000L, size = num_rs * nrow(trainInfo$loop) + 1L)
       seeds <- lapply(seq(from = 1L, to = length(seeds), by = nrow(trainInfo$loop)),
                       function(x) { seeds[x:(x+nrow(trainInfo$loop)-1L)] })
@@ -634,6 +651,7 @@ train.default <- function(x, y,
       perfNames <- metric
     } else {
       ## run some data thru the summary function and see what we get
+      ##### 이거 왜하는거지? class 를 random 하게 뽑아서 그냥 평가.
       testSummary <- evalSummaryFunction(y, wts = weights, ctrl = trControl,
                                          lev = classLevels, metric = metric,
                                          method = method)
@@ -678,6 +696,11 @@ train.default <- function(x, y,
         performance <- tmp$performance
       } else {
         if(!grepl("adapt", trControl$method)){
+          
+          #### ~~TrainWorkflow 가 무엇을 하는 함수지?? 
+          #### resampling method별로 약간의 variation 을 줘서 모델을 train 하도록 작성된듯 한데..
+          #### nominalLTrainworkflow  함수 작동원리는 나중에 알아보고 우선 담번에
+          #### 여기서부터!!!!!! 210721
           tmp <- nominalTrainWorkflow(x = x, y = y, wts = weights,
                                       info = trainInfo, method = models,
                                       ppOpts = preProcess, ctrl = trControl, lev = classLevels, ...)
