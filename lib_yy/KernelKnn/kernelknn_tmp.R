@@ -1,170 +1,179 @@
+########## KernelKnn with caret
+#### model fit
 library(KernelKnn)
-# Distance
-# Widely used distance metrics are the 
-# euclidean, manhattan, chebyshev, minkowski(default the order 'p' equals k) and hamming
-# (canberra, braycurtis, mahalanobis)
-# for binary data [0, 1]
-# - Rao_coefficient, jaccard_coefficient, simple_matching_coefficient, pearson_correlation
+library(caret)
+library(mlbench) # don't need to use
+# Sonar data
+data("Sonar")
+inTraining <- createDataPartition(Sonar$Class, p = 0.75, list = FALSE)
+training <- Sonar[inTraining, ]
+testing <- Sonar[-inTraining, ]
+
+# BostonHousing data for Regression
+# data("BostonHousing")
+# inTraining_BH <- createDataPartition(BostonHousing$medv, p = 0.75, list = FALSE)
+# training_BH <- BostonHousing[inTraining_BH, ]
+# testing_BH <- BostonHousing[-inTraining_BH, ]
 
 
-# Weight (kernels) 왜 kernel이라고 하지?
-
-data("ionosphere")
-ionosphere1 <- apply(ionosphere, 2, function (x) length(unique(x)))
-ionosphere1 <- ionosphere[, -2]
-
-x <- scale(ionosphere1[, -ncol(ionosphere1)])
-y <- ionosphere1[, ncol(ionosphere1)]
-
-# convert y from factor to numeric in classification
-y <- c(1:length(unique(y)))[match(ionosphere1$class, sort(unique(ionosphere1$class)))]
-
-# random split in train-test
-spl_train <- sample(1:length(y), round(length(y) * 0.75))
-spl_test <- setdiff(1:length(y), spl_train)
-
-str(spl_train)
-str(spl_test)
-# evaluation metric
-acc <- function(y_true, preds) { # Accuracy
-  
-  out <- table(y_true, max.col(preds, ties.method = "random"))
-  acc <- sum(diag(out)) / sum(out)
-  acc
-}
-
-preds_TEST <- KernelKnn(x[spl_train, ], TEST_data = x[spl_test, ],
-                        y[spl_train], k = 5,
-                        method = "euclidean", weights_function = NULL,
-                        regression = FALSE,
-                        Levels = unique(y))
-head(preds_TEST)  # why? probability??? not 1 or 0
-
-### Two ways to use a kernel in the KernelKnn function
-# First option
-# choose one of the existing kernels (uniform, triangular, epanechnikov, 
-# biweight, triweight, tricube, gaussian, cosine, logistic, silverman, inverse,
-# gaussianSimple, exponential)
-preds_TEST_tric <- KernelKnn(x[spl_train, ], TEST_data = x[spl_test, ],
-                             y[spl_train], k = 10, method = 'canberra',
-                             weights_function = 'tricube',
-                             regression = FALSE,
-                             Levels = unique(y))
-
-# Second option
-norm_kernel <- function(W) {
-  W <- dnorm(W, mean = 0, sd = 1.0)
-  W <- W / rowSums(W)
-  return(W)
-}
-
-preds_TEST_norm <- KernelKnn(x[spl_train, ], TEST_data = x[spl_test, ],
-                             y[spl_train], k = 10,
-                             method = 'canberra', weights_function = norm_kernel,
-                             regression = FALSE,
-                             Levels = unique(y))
-
-fit_cv_pair1 <- KernelKnnCV(x, y, k = 10, folds = 5, method = 'canberra',
-                            weights_function = 'tricube', regression = FALSE,
-                            Levels = unique(y), threads = 5) # threads option 은 뭐지?
-str(fit_cv_pair1)
-
-fit_cv_pair2 <- KernelKnnCV(x, y, k = 9, folds = 5, method = 'canberra',
-                            weights_function = 'epanechnikov', regression = FALSE,
-                            Levels = unique(y), threads = 5)
-str(fit_cv_pair2)
-
-acc_pair1 <- unlist(lapply(1:length(fit_cv_pair1$preds), 
-                           function (x) acc(y[fit_cv_pair1$folds[[x]]],
-                                            fit_cv_pair1$preds[[x]])))
-acc_pair1
-
-cat('accurcay for params_pair1 is :', mean(acc_pair1), '\n')
-
-acc_pair2 <- unlist(lapply(1:length(fit_cv_pair2$preds), 
-                           function (x) acc(y[fit_cv_pair2$folds[[x]]],
-                                            fit_cv_pair2$preds[[x]])))
-acc_pair2
-cat('accuracy for params_pair2 is :', mean(acc_pair2), '\n')
+##### REx module Function Arguments #####
+### Variable
+res_var <- "Class"
+qual_var <- NULL
+quan_var <- colnames(Sonar)[1:10]
+### result
+df <- Sonar[, c(res_var, qual_var, quan_var)]
+normalize <- FALSE #. preproc에 적용
+### Analysis
+analysis_type <- "classification" # "regression"
+distance_method <- "euclidean" # "manhattan"
+weight_method <- NULL # "uniform"
+k <- c(2, 3) # 4
+### Validation
+resample_method <- "cv" # "none"
+resample_iter <- 1
+resample_fold <- 2
+# resample_repeats <- NULL # 5
+train_p <- 0.7
+search_method <- "grid" # "grid" "random"
+# resample_p <- NULL
+optm_metric <- "accuracy"
+### Output
 
 
+##### 0. Data Preparing
+y <- df[, res_var]
+x <- df[, c(qual_var, quan_var), drop = FALSE]
 
-################# KernelKnn with caret 
+##### 1. Data Split
+# Assume data cleaning already applied (eg. treating missing value or generating dummy var)
+set.seed(333) #. need?
+#. confirm if data partition needed when using resampling method
+# test set을 정해놓는게 나은지? 여러가지를 test set으로 하는게 나은지?
+train_idx <- createDataPartition(y, times = resample_iter, p = train_p, 
+                                 list = TRUE, groups = min(5, length(y)))
+
+#. Iterate with train data generated default = 1
+i <- 1
+training_y <- y[train_idx[[i]]] # data.frame format 고정 어떻게???
+training_x <- x[train_idx[[i]], ]
+# test_y <- y[-train_idx[[i]], ]
+# test_x <- x[-train_idx[[i]], ]
+#. need to check if there is two class in training and test set
+
+##### 1. Customized Functions
 KkNN <- list(
   type = c("Classification"), # Regression
-  library = "KernelKnn",
-  loop = NULL, # WHAT??
   
-  # parameter elements
-  # State parameter elements and class label
+  library = "KernelKnn",
+  
   parameters = data.frame(
     parameter = c("k"),
     class = c("numeric"),
-    label = c("#Neighbors")
+    label = c("Neighbors")
   ),
   
-  # grid element
-  # 
-  grid = function (x, y, len = NULL, search = "grid") {
-    if (search == "grid") {
+  grid = function (x, y, len, search = search_method) {
+    if (search == "grid") { 
+      #. 만약 UI에서 들어온 값을 그대로 쓰면 어떻게됨? 
+      # grid search 나 random search 를 쓰면 UI는 어떻게 구성해야함?
       out <- data.frame(
-        k = (5:(2 * len + 4))[(5:(2 * len + 4)) %% 2 > 0],
-        distance = "euclidean", # other method possible
-        kernel = "optimal" # kernel 이 optimal은 뭐지?,
+        k = len
       )
     } else {
-      by_val <- if (is.factor(y)) length(levels(y)) else 1
-      out <- data.frame(k = sample(seq(1, floor(nrow(x) / 3), by = by_val), size = len, replace = TRUE))
+      stop("Error: random search is not yet implemented")
     }
-  }
+    out
+  },
   
-  # fit element
-  fit = function (x, y, wts, param, lev, last, weight, classProb, ...) {
-    KernelKnn::KernelKnn(
+  fit = function (x, y, wts, param, lev, last, weights = weight_method, 
+                  classProb = ifelse(analysis_type == "classification", FALSE, TRUE),
+                  #. need to check
+                  dist_method = distance_method, ...) {
+    
+    y_level <- levels(y)
+    y_vec <- as.numeric(y)
+    kernknn_res <- KernelKnn::KernelKnn(
       data = as.matrix(x), 
-      y = y,
+      y = y_vec,
       k = param$k,
-      method = param$distance,
-      weights_function = NULL, # weight should be parameter? weight value in fit
-      regression = FALSE,
-      transf
+      method = dist_method, 
+      weights_function = weights,
+      h = 1, #weight function bandwidth
+      regression = classProb,
+      transf_categ_cols = FALSE,
+      threads = 1,
+      extrema = F,
+      Levels = unique(y_vec)
     )
+    colnames(kernknn_res) <- y_level
+    
+    # Reconstruct 'KernelKnn' result
+    if (classProb) { 
+      stop("Error: fitted.values for regression not yet implemented.")
+      # fitted.values <- rowsums(W*CL) / pmax(rowsoms(W), 1e-06)
+    } else { 
+      fitted.values <- apply(kernknn_res, 1, order, decreasing = TRUE)[1, ]
+      for (i in 1:length(y_level)) {
+        fitted.values[which(fitted.values == i)] <- y_level[i]
+      }
+    }
+    out <- list(
+      prob = kernknn_res,
+      fitted.values = as.factor(fitted.values),
+      problemType = analysis_type
+    )
+    print(summary(out))
+    
+    
+    return(out)
+  },
+  
+  predict = function(modelFit, newdata, preProc = NULL, submodels = NULL) {
+    # print("modelFit!!!!!")
+    print(str(modelFit))
+    if(modelFit$problemType == "Classification") {
+      out <- predict(modelFit, newdata,  type = "class")
+    } else {
+      out <- predict(modelFit, newdata)
+    }
+    out
+  },
+  
+  prob = function(modelFit, newdata, preProc = NULL, submodels = NULL) {
+    predict(modelFit, newdata, type = "probabilities")
   }
 )
 
-# parameter elements
-# prm <- data.frame(parameter = c("k", "distance", "kernel"),
-#                   class = c("numeric", "character", "character"),
-#                   label = c("#Neighbors", "Distance", "Kernel"))
-prm <- data.frame(parameter = c("k"),
-                  class = c("numeric"),
-                  label = c("#Neighbors"))
-KkNN$parameters <- prm
+##### 2. Train Options
+# number: either the number of folds or number of resampling iterations
+# repeats: For repeated k-folds cross-validation only
+# search: grid/random none은 없나? 입력값만 넣어서 할 수 있는 것
+fitControl <- trainControl(method = resample_method,
+                           number = ifelse(grepl("cv", resample_method), resample_fold, 1),
+                           repeats = ifelse(grepl("[d_]cv$", resample_method), 1, NA),
+                           search = search_method,
+                           savePredictions = TRUE,
+                           classProbs = FALSE,
+                           verboseIter = TRUE
+                           )
 
-# grid element
-# knnGrid <- function(x, y, len = NULL, search = "grid") {
-#   if(search == "grid") {
-#     out <- data.frame(kmax = (5:((2 * len)+4))[(5:((2 * len)+4))%%2 > 0], ## need to edit
-#                       distance = 2,
-#                       kernel = "optimal")
-#   } else {
-#     by_val <- if(is.factor(y)) length(levels(y)) else 1
-#     kerns <- c("rectangular", "triangular", "epanechnikov", 
-#                "biweight", "triweight", "cos", "inv", "gaussian")
-#     out <- data.frame(kmax = sample(seq(1, floor(nrow(x)/3), by = by_val), size = len, replace = TRUE),
-#                       distance = runif(len, min = 0, max = 3),
-#                       kernel = sample(kerns, size = len, replace = TRUE))
-#   }
-#   out
-# }
-# 
-# KkNN$grid <- knnGrid()
+##### 3. Train: Fit the model
+set.seed(825) # seed 설정 어디서 하는게 좋지? 어디서 또 해야하지?
 
-# fit element
-KkNNFit <- function(x, y, wts, param, lev, last, weights, classProbs, ...) {
-  # x, y, kernel, kpar, C, prob.model
-  dat <- if (is.data.frame(x)) x else as.data.frame(x, stringsAsFa)
-  KernelKnn::KernelKnn(
-    
-  )
-}
+# data type transpose
+train_set <- cbind(training_x, training_y)
+colnames(train_set)[ncol(train_set)] <- res_var #. could be iter
+kernel_knn <- train(Class ~ ., 
+                    data = train_set,
+                    method = KkNN,
+                    # preProc = c("center", "scale"),
+                    tuneGrid = data.frame(k = k),
+                    trControl = fitControl)
+
+# kernel_knn #. what is predictor? in the result
+
+#. kernel knn result 다듬어야함
+# kernel_knn$results
+#. tune은 어떤값이 들어가는거지?
+# kernel_knn$bestTune

@@ -707,6 +707,16 @@ train.default <- function(x, y,
           performance <- tmp$performance
           resampleResults <- tmp$resample
         } else {
+          # x: data frame containing training data where samples are in rows and features are in columns
+          # y: numeric or factor vector containing the outcome for each sample
+          # weights: numeric vector of case weights. 
+          # info: information about how we should loop
+          # method: include all model information
+          # ppOpts: 
+          # ctrl: Information from trainControl
+          # lev: class level in Classification
+          # metric: evaluation metric
+          # maximize: logical. metric should be maximize? or minimize?
           tmp <- adaptiveWorkflow(x = x, y = y, wts = weights,
                                   info = trainInfo, method = models,
                                   ppOpts = preProcess,
