@@ -54,6 +54,7 @@ expandParameters <- function(fixed, seq)
 #' @import foreach
 nominalTrainWorkflow <- function(x, y, wts, info, method, ppOpts, ctrl, lev, testing = FALSE, ...)
 {
+  # x, y, wts, info, method, ppOpts, ctrl, lev
   loadNamespace("caret")
   ppp <- list(options = ppOpts)
   ppp <- c(ppp, ctrl$preProcOptions)
@@ -80,6 +81,7 @@ nominalTrainWorkflow <- function(x, y, wts, info, method, ppOpts, ctrl, lev, tes
   result <- foreach(iter = seq(along = resampleIndex), .combine = "c", .verbose = FALSE, .export = export, .packages = "caret") %:%
     foreach(parm = 1L:nrow(info$loop), .combine = "c", .verbose = FALSE, .export = export , .packages = "caret")  %op%
     {
+      # iter <- 1; parm <- 1 #iter = 1:3; parm = 1:9 #number of fold & parameter combination
       if(!(length(ctrl$seeds) == 1 && is.na(ctrl$seeds))) set.seed(ctrl$seeds[[iter]][parm])
 
       loadNamespace("caret")
@@ -102,6 +104,18 @@ nominalTrainWorkflow <- function(x, y, wts, info, method, ppOpts, ctrl, lev, tes
         submod <- info$submodels[[parm]]
       } else submod <- NULL
 
+      # mod <- try(
+      #   createModel(x = subset_x(x, modelIndex),
+      #               y = y[modelIndex],
+      #               wts = wts[modelIndex],
+      #               method = method,
+      #               tuneValue = info$loop[parm,,drop = FALSE],
+      #               obsLevels = lev,
+      #               pp = ppp,
+      #               classProbs = ctrl$classProbs,
+      #               sampling = ctrl$sampling,
+      #               ...),
+      #   silent = TRUE)
       mod <- try(
         createModel(x = subset_x(x, modelIndex),
                     y = y[modelIndex],
@@ -112,7 +126,8 @@ nominalTrainWorkflow <- function(x, y, wts, info, method, ppOpts, ctrl, lev, tes
                     pp = ppp,
                     classProbs = ctrl$classProbs,
                     sampling = ctrl$sampling,
-                    ...),
+                    kern_type = kern_type,
+                    machine_type = machine_type),
         silent = TRUE)
 
       if(testing) print(mod)

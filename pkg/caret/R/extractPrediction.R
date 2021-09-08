@@ -150,6 +150,8 @@ trimPredictions <- function(pred, mod_type, bounds, limits) {
 
 ## This is used in workflows
 trim_values <- function(preds, ctrl, is_num) {
+  # preds <- predicted; is_num <- is.null(lev)
+  
   if(is_num) {
     if(is.logical(ctrl$predictionBounds) && any(ctrl$predictionBounds)) {
       if(is.list(preds)) {

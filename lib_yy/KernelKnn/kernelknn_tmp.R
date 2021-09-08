@@ -27,10 +27,10 @@ normalize <- FALSE #. preproc에 적용
 ### Analysis
 analysis_type <- "classification" # "regression"
 distance_method <- "euclidean" # "manhattan"
-weight_method <- NULL # "uniform"
-k <- c(2, 3) # 4
+weight_method <- "uniform"
+k <- 4 # c(2, 3) # 4
 ### Validation
-resample_method <- "cv" # "none"
+resample_method <- "none" # "cv" # 
 resample_iter <- 1
 resample_fold <- 2
 # resample_repeats <- NULL # 5
@@ -46,39 +46,40 @@ y <- df[, res_var]
 x <- df[, c(qual_var, quan_var), drop = FALSE]
 
 ##### 1. Data Split
-# Assume data cleaning already applied (eg. treating missing value or generating dummy var)
 set.seed(333) #. need?
 #. confirm if data partition needed when using resampling method
-# test set을 정해놓는게 나은지? 여러가지를 test set으로 하는게 나은지?
 train_idx <- createDataPartition(y, times = resample_iter, p = train_p, 
                                  list = TRUE, groups = min(5, length(y)))
 
-#. Iterate with train data generated default = 1
+#. Iteration with train data generated. default = 1
 i <- 1
-training_y <- y[train_idx[[i]]] # data.frame format 고정 어떻게???
+training_y <- y[train_idx[[i]]]
 training_x <- x[train_idx[[i]], ]
 # test_y <- y[-train_idx[[i]], ]
 # test_x <- x[-train_idx[[i]], ]
 #. need to check if there is two class in training and test set
 
-##### 1. Customized Functions
+##### 2. Customized Functions
+# Required list: type, library, parameters, grid, fit, predict, prob
 KkNN <- list(
   type = c("Classification"), # Regression
   
   library = "KernelKnn",
   
   parameters = data.frame(
-    parameter = c("k"),
-    class = c("numeric"),
-    label = c("Neighbors")
+    parameter = c("k", "distance", "weight"),
+    class = c("numeric", "character", "character"),
+    label = c("Neighbors", "Distance", "Weight"),
+    stringsAsFactors = FALSE
   ),
   
-  grid = function (x, y, len, search = search_method) {
-    if (search == "grid") { 
-      #. 만약 UI에서 들어온 값을 그대로 쓰면 어떻게됨? 
-      # grid search 나 random search 를 쓰면 UI는 어떻게 구성해야함?
+  grid = function (x, y, len = NULL, search = search_method) {
+    if (search == "grid") {
       out <- data.frame(
-        k = len
+        k = k,
+        distance = "euclidean", #rep(distance_method, length(k)),
+        weight = "gaussian", #rep("gaussian", length(k))
+        stringsAsFactors = FALSE
       )
     } else {
       stop("Error: random search is not yet implemented")
@@ -90,16 +91,16 @@ KkNN <- list(
                   classProb = ifelse(analysis_type == "classification", FALSE, TRUE),
                   #. need to check
                   dist_method = distance_method, ...) {
-    
     y_level <- levels(y)
     y_vec <- as.numeric(y)
+    
     kernknn_res <- KernelKnn::KernelKnn(
       data = as.matrix(x), 
       y = y_vec,
       k = param$k,
-      method = dist_method, 
-      weights_function = weights,
-      h = 1, #weight function bandwidth
+      method = param$distance,
+      weights_function = param$weight,
+      h = 1, #weight function bandwidth - default value should be ??
       regression = classProb,
       transf_categ_cols = FALSE,
       threads = 1,
@@ -118,20 +119,30 @@ KkNN <- list(
         fitted.values[which(fitted.values == i)] <- y_level[i]
       }
     }
+    
+    # dat <- if(is.data.frame(x)) x else as.data.frame(x, stringsAsFactors = TRUE)
+    # modForm <- caret:::smootherFormula(x)
+    # if(is.factor(y)) {
+    #   dat$.outcome <- ifelse(y == lev[1], 0, 1)
+    # } else {
+    #   dat$.outcome <- y
+    # }
+    # modelArgs <- list(formula = modForm,
+    #                   data = dat,
+    #                   k = param$k,
+    #                   weights_function = param$weight,
+    #                   dist_method = param$distance)
+    
     out <- list(
       prob = kernknn_res,
       fitted.values = as.factor(fitted.values),
       problemType = analysis_type
     )
-    print(summary(out))
-    
     
     return(out)
   },
   
   predict = function(modelFit, newdata, preProc = NULL, submodels = NULL) {
-    # print("modelFit!!!!!")
-    print(str(modelFit))
     if(modelFit$problemType == "Classification") {
       out <- predict(modelFit, newdata,  type = "class")
     } else {
@@ -146,9 +157,7 @@ KkNN <- list(
 )
 
 ##### 2. Train Options
-# number: either the number of folds or number of resampling iterations
-# repeats: For repeated k-folds cross-validation only
-# search: grid/random none은 없나? 입력값만 넣어서 할 수 있는 것
+resample_method <- "cv"
 fitControl <- trainControl(method = resample_method,
                            number = ifelse(grepl("cv", resample_method), resample_fold, 1),
                            repeats = ifelse(grepl("[d_]cv$", resample_method), 1, NA),
@@ -159,7 +168,7 @@ fitControl <- trainControl(method = resample_method,
                            )
 
 ##### 3. Train: Fit the model
-set.seed(825) # seed 설정 어디서 하는게 좋지? 어디서 또 해야하지?
+set.seed(825)
 
 # data type transpose
 train_set <- cbind(training_x, training_y)
@@ -167,13 +176,33 @@ colnames(train_set)[ncol(train_set)] <- res_var #. could be iter
 kernel_knn <- train(Class ~ ., 
                     data = train_set,
                     method = KkNN,
-                    # preProc = c("center", "scale"),
-                    tuneGrid = data.frame(k = k),
+                    tuneGrid = data.frame(k = c(2, 3),
+                                          distance = c("euclidean", "euclidean"),#rep("euclidean", length(k)),
+                                          weight = c("gaussian","gaussian"),
+                                          stringsAsFactors = FALSE), #rep("gaussian", length(k))),
                     trControl = fitControl)
 
-# kernel_knn #. what is predictor? in the result
 
-#. kernel knn result 다듬어야함
-# kernel_knn$results
-#. tune은 어떤값이 들어가는거지?
-# kernel_knn$bestTune
+
+###### model info TEST --------------
+# multiple_param_model <- which(unlist(lapply(aa, function (x) { if(nrow(x$parameters) > 1) { 
+#   TRUE
+#   } else {FALSE} 
+# })))
+# 
+# model_df <- cbind(1:length(multiple_param_model), as.matrix(multiple_param_model))
+# multiple_param_model[i]
+# 
+# i <- 10
+# aa[[multiple_param_model[i]]]
+# #
+# 
+# aa[[multiple_param_model[i]]]$fit
+# aa[[multiple_param_model[i]]]$predict
+# 
+# ### kknn example
+# yy <- as.numeric(training_y)
+# # KernelKnn(training_x, y = yy, k = 2, weights_function = "gaussian", Levels = unique(yy))
+# kknncv <- KernelKnnCV(training_x, y = yy, k = 2, folds = 3, weights_function = "gaussian", Levels = unique(yy))
+# kknncv$preds
+# 

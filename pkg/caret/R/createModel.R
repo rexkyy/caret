@@ -43,11 +43,18 @@
     rm(tmp)
   }
 
+  # modelFit <- method$fit(x = x,
+  #                        y = y, wts = wts,
+  #                        param  = tuneValue, lev = obsLevels,
+  #                        last = last,
+  #                        classProbs = classProbs, ...)
   modelFit <- method$fit(x = x,
                          y = y, wts = wts,
                          param  = tuneValue, lev = obsLevels,
                          last = last,
-                         classProbs = classProbs, ...)
+                         classProbs = classProbs,
+                         kern_type = kern_type,
+                         machine_type = machine_type)
   ## for models using S4 classes, you can't easily append data, so
   ## exclude these and we'll use other methods to get this information
   if(is.null(method$label)) method$label <- ""

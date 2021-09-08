@@ -262,3 +262,121 @@ fitControl <- trainControl(method = "none", number = 10, repeats = NA,
 rf_fit <- train(Class ~ ., data = training, method = "rf", 
                 trControl = fitControl)
 #
+
+
+## caret using svmRadialWeights -------
+set.seed(2)
+library(caret)
+library(mlbench)
+data("PimaIndiansDiabetes2", package = "mlbench")
+train_idx <- createDataPartition(PimaIndiansDiabetes2$diabetes, p = 0.7)
+training_set <- PimaIndiansDiabetes2[train_idx$Resample1, ]
+test_set <- PimaIndiansDiabetes2[-train_idx$Resample1, ]
+
+svm_linear_modelinfo <- getModelInfo("svmRadialWeights")$svmRadialWeights
+svm_linear_modelinfo$grid <- function(x, y, len = NULL, search = "grid") {
+        sigmas <- kernlab::sigest(as.matrix(x), na.action = na.omit, scaled = TRUE)
+        if(search == "grid") {
+                out <- expand.grid(sigma = mean(as.vector(sigmas[-2])),
+                                   C = 2 ^((1:len) - 3),
+                                   Weight = 1:len)
+        } else {
+                rng <- extendrange(log(sigmas), f = .75)
+                out <- data.frame(sigma = exp(runif(len, min = rng[1], max = rng[2])),
+                                  C = 2^runif(len, min = -5, max = 10),
+                                  Weight = runif(len, min = 1, max = 25))
+        }
+        return(out)
+}
+svm_linear_modelinfo$fit <- function(x, y, wts, param, lev, last, classProbs, ...) {
+
+        if(param$Weight != 1) {
+                wts <- c(param$Weight, 1)
+                names(wts) <- levels(y)
+        } else wts <- NULL
+        
+        if(any(names(list(...)) == "prob.model") | is.numeric(y)) {
+                out <- kernlab::ksvm(x = as.matrix(x), y = y,
+                                     kernel = "rbfdot",
+                                     kpar = list(sigma = param$sigma),
+                                     class.weights = wts,
+                                     C = param$C, ...)
+        } else {
+                out <- kernlab::ksvm(x = as.matrix(x), y = y,
+                                     kernel = "rbfdot",
+                                     kpar = list(sigma = param$sigma),
+                                     class.weights = wts,
+                                     C = param$C,
+                                     prob.model = classProbs,
+                                     ...)
+        }
+        
+        print("fit function output!!!!!")
+        print(out)
+        return(out)
+}
+svm_linear_modelinfo$predict <- function(modelFit, newdata, submodels = NULL) {
+        out <- kernlab::predict(modelFit, newdata)
+        if(is.matrix(out)) out <- out[,1]
+        out
+}
+
+# Train Information
+resample_method <- "cv"
+training_x <- training_set[, -ncol(training_set)]
+training_y <- training_set[, ncol(training_set)]
+
+svm_linear_trctrl <- trainControl(method = resample_method,
+                                  number = ifelse(grepl("cv", resample_method), 3, 5),
+                                  classProbs = FALSE
+                                  )
+svm_train <- train(x = training_x,
+                   y = training_y,
+                   method = svm_linear_modelinfo,
+                   trControl = svm_linear_trctrl,
+                   # tuneGrid = expand.grid(C = seq(0, 2, length = 10),
+                   #                        sigma = 0.1346033,
+                   #                        Weight = 1),
+                   tuneGrid = data.frame(C = 0,
+                                         sigma = 0.1346033,
+                                         Weight = 1),
+                   tuneLength = 10
+                   )
+
+
+## caret example with cross-validation----------
+library(caret)
+data("iris")
+nb_modelinfo_tmp <- getModelInfo("nb")$nb
+nb_modelinfo <- nb_modelinfo_tmp
+nb_modelinfo$grid <- function(x, y, len = NULL, search = "grid") {
+        out <- expand.grid(usekernel = c(TRUE, FALSE), fL = 0, adjust = 1)
+        return(out)
+}
+nb_modelinfo$fit <- function(x, y, wts, param, lev, last, classProbs, ...) {
+        print("param in fit function!!!!!")
+        print(param)
+        
+        if(param$usekernel) {
+                out <- klaR::NaiveBayes(x, y, usekernel = TRUE,  fL = param$fL, adjust = param$adjust, ...)
+        } else out <- klaR::NaiveBayes(x, y, usekernel = FALSE, fL = param$fL, ...)
+        
+        print("fit output!!!!!!")
+        print(out)
+        return(out)
+}
+nb_modelinfo$predict <- function(modelFit, newdata, submodels = NULL) {
+        
+        print("modelFit!!!!!")
+        print(str(modelFit))
+        
+        if(!is.data.frame(newdata)) newdata <- as.data.frame(newdata, stringsAsFactors = TRUE)
+        predict(modelFit , newdata)$class
+}
+train_control <- trainControl(method = "none", number = 10)
+
+grid <- expand.grid(fL = c(0:3), usekernel = c(FALSE), adjust = 1)
+model <- train(Species~., data = iris, trControl = train_control, 
+               method = nb_modelinfo, tuneGrid = grid)
+
+
