@@ -1,43 +1,43 @@
 rm(list=ls())
-library(e1071)
-library(caret)
 
-local_output <- paste0(getwd(), "/lib_yy/SVM/svm_tmp_html.html")
+local_output <- paste0(getwd(), "/lib_yy/SVM/svm_tmp_html_reg.html")
 source(paste0(getwd(), "/lib_yy/rex_lib/graphics.R"), encoding = "UTF-8")
 source(paste0(getwd(), "/lib_yy/rex_lib/common.R"), encoding = "UTF-8")
 # sample dataset
 sample_data <- read.csv("D://yeyoung/Data/import_data/6.csv")
-sample_data <- sample_data[, c("hyp", "bweight", "lowbw", "gestwks", "sex", "matage")]
+sample_data <- sample_data[, c("hyp", "bweight", "lowbw", "gestwks", "sex", "matage", "preterm")]
 sample_data$lowbw <- as.factor(sample_data$lowbw)
 sample_data$sex <- as.factor(sample_data$sex)
+sample_data$hyp <- as.factor(sample_data$hyp)
+sample_data$preterm <- as.factor(sample_data$preterm)
 
 # Input values----------
 dataset <- sample_data
 #Variables Tab
-dep_var <- "hyp"
-conti_var <- c("gestwks", "matage", "bweight")
+dep_var <- "gestwks"  #"hyp"
+conti_var <- c("matage", "bweight")
 cat_var <- NULL #c("lowbw", "sex")
 standardize <- FALSE
 
 #Analysis Tab
-analysis_type <- "C-classification" # eps-regression
+analysis_type <- "eps-regression" #"C-classification" # 
 kernel <- "polynomial" # "linear", "radial", "sigmoid"
 search_method <- "grid" # NULL, "random", "custom"
 tune_len <- 3
-cost <- 1
-gamma <- 1/length(c(conti_var, cat_var))
-degree <- 3
-hyperparam_default <- TRUE # true 이면 조율모수, 그리드 개수의 default값을 다시 넣어주는 작업 필요. 
+cost <- NULL #1
+gamma <- NULL #1/length(c(conti_var, cat_var))
+degree <- NULL #3
+hyperparam_default <- FALSE # true 이면 조율모수, 그리드 개수의 default값을 다시 넣어주는 작업 필요. 
 
 #Validation
-split_method <- "by_random" # "use_all", "by_variable"
-split_var <- NULL
-p_train <- 70
+partition_method <- "by_random" # "use_all", "by_variable"
+partition_var <- NULL
+p_train <- 80
 # p_test <- 100 - p_training 
-valid_method <- "cv" # "none", "split",
-p_valid <- 4
-fold <- 3
-iter <- 10 # 이거 사용하지 않는 valid method 가 선택되었을 때 default 값 어떻게 처리하지?
+valid_method <- "cv" # "split", "none",
+p_valid <- NULL #4
+fold <- 4 # 4
+iter <- 10 # 10 # 이거 사용하지 않는 valid method 가 선택되었을 때 default 값 어떻게 처리하지?
 
 ##### 1. 변수설명 #####
 # 변수설정
@@ -58,8 +58,8 @@ iter <- 10 # 이거 사용하지 않는 valid method 가 선택되었을 때 def
 # hyperparam_default: 기본값 설정
 
 # 자료분할
-# split_data: 자료분할 방법
-# split_var: 자료 분할 변수
+# partition_method: 자료분할 방법
+# partition_var: 자료 분할 변수
 # p_training: 훈련 데이터셋 비율
 # p_test: 테스트 데이터셋 비율
 # valid_method: 검증방법
@@ -86,8 +86,7 @@ load.pkg(c("R2HTML", "e1071", "caret"))
 
 
 ##### 4.1 분석 제목 #####
-R2HTML::HTML(R2HTML::as.title("Support Vector Machine (SVM)"), HR = 1, 
-             file = local_output, append = FALSE)
+R2HTML::HTML(R2HTML::as.title("Support Vector Machine (SVM)"), HR = 1, file = local_output, append = FALSE)
 
 
 ##### 4.2 데이터 확인: Error & Warning message #####
@@ -96,9 +95,9 @@ R2HTML::HTML(R2HTML::as.title("Support Vector Machine (SVM)"), HR = 1,
 #### 4.2.1 커널함수 설정 #####
 #yy. 기본값으로 들어가도록 설정. 함수 default 값임? 이거 기본값임?
 #기본값 TRUE일 때 어디서 코드 지정해야하지?
-if (is.null(degree)) { degree <- 3 }
-if (is.null(gamma)) { gamma <- 1 / (length(c(conti_var, cat_var))) }
-if (is.null(cost)) { cost <- 1 }
+# if (is.null(degree)) { degree <- 3 }
+# if (is.null(gamma)) { gamma <- 1 / (length(c(conti_var, cat_var))) }
+# if (is.null(cost)) { cost <- 1 }
 
 
 #### 4.2.2 독립 변수 미 선택 시 #####
@@ -156,16 +155,17 @@ if (analysis_type == "C-classification" & is.numeric(dataset[, dep_var])) {
 #
 
 #### 4.2.7 커널함수-cost 확인 #####
-if (sum(cost <= 0) != 0 | is.character(cost)) {
-  err_tunepar1 <- paste0("<li> Error : The cost should be numbers and greater than 0. ",
-                         "Analysis has been stopped.") 
-}
-
-
-#### 4.2.8 커널함수-gamma 확인 #####
-if (gamma <= 0 | is.character(gamma)) {
-  err_tunepar2 <- paste0("<li> Error : The gamma should be numbers and greater than 0. ",
-                         "Analysis has been stopped.") 
+if (search_method == "custom") {
+  if (sum(cost <= 0) != 0 | is.character(cost)) {
+    err_tunepar1 <- paste0("<li> Error : The cost should be numbers and greater than 0. ",
+                           "Analysis has been stopped.") 
+  }
+  
+  #### 4.2.8 커널함수-gamma 확인 #####
+  if (gamma <= 0 | is.character(gamma)) {
+    err_tunepar2 <- paste0("<li> Error : The gamma should be numbers and greater than 0. ",
+                           "Analysis has been stopped.") 
+  }
 }
 
 
@@ -199,9 +199,9 @@ for (c in cat_var) {
 }
 
 # 변수정리, complete observation 만 사용하도록
-obs_unchecked_data <- dataset #f_data
+obs_unchecked_data <- dataset
 indep_var <- c(conti_var, cat_var)
-selected_var <- c(dep_var, indep_var, split_var)
+selected_var <- c(dep_var, indep_var, partition_var)
 dataset <- dataset[complete.cases(dataset[, selected_var, drop = FALSE]), selected_var, drop = FALSE]
 obs_checked_data <- dataset
 
@@ -211,7 +211,7 @@ if (nrow(dataset) == 0) {
 }
 
 # 훈련 및 시험 데이터셋 정리
-if (split_method == "by_random") { # "by_variable", "use_all"
+if (partition_method == "by_random") { # "by_variable", "use_all"
   n_train <- round(nrow(dataset) * p_train / 100)
   if (p_train == 100 | n_train == nrow(dataset)) {
     err_obs3 <- paste0("<li> Error : No observations are assigned to the test data. ",
@@ -225,20 +225,15 @@ if (split_method == "by_random") { # "by_variable", "use_all"
     test_set <- dataset[-train_idx, , drop = FALSE]
     train_set <- dataset[train_idx, , drop = FALSE]
     
-    #yy: createDataPartition 함수가 아래 해결해주지 않을까 함. 해당 함수에서 발생가능한 오류를 사전에 차단해야함.
-    # if (nrow(raw_dat) != (nrow(train_set) + nrow(test_set))) {
-    #   warn_obs1 <- paste0("<li> Warning : Observations with missing dependent variable ",
-    #                       "were not assigned to training or test dataset.")
-    # }
     train_set <- train_set[order(as.numeric(rownames(train_set))), , drop = FALSE]
     test_set <- test_set[order(as.numeric(rownames(test_set))), , drop = FALSE]
   }
-} else if (split_method == "by_variable") {
+} else if (partition_method == "by_variable") {
   
 } else { # "use_all"
-  
+  train_set <- dataset
 }
-# split 데이터 우선 저장: 
+# partition 데이터 우선 저장: 
 # validation set 을 사용하지 못하는 경우 경고문 출력 후 이 데이터 사용
 s_train_set <- train_set
 
@@ -248,7 +243,7 @@ s_train_set <- train_set
 # validation 이 check 되면 일단 데이터셋 나눔.
 
 # 훈련자료를 훈련/검증 자료로 나눔
-if (validation) { # validation <- TRUE
+if (valid_method == "split") {
   if (!is.null(p_valid) & p_valid > 1) {
     p_valid_adj <- p_train / p_valid / 100
     valid_idx <- createDataPartition(s_train_set[, dep_var], p = p_valid_adj)$Resample1
@@ -267,7 +262,9 @@ if (validation) { # validation <- TRUE
 # raw_dat: original dataset, train_set: training dataset, test_set: test dataset,
 # valid_set: validation dataset
 
-# test dataset check
+
+# CATEGORICAL VARIABLE CHECK
+# test dataset level check 
 if (!is.null(cat_var) & exists("test_set")) {
   for (c in cat_var) { # c <- cat_var[1]
     var_level <- unique(train_set[, c])
@@ -290,7 +287,7 @@ if (!is.null(cat_var) & exists("test_set")) {
   }
 }
 
-# validation dataset check
+# validation dataset level check
 if (!is.null(cat_var) & exists("valid_set")) {
   for (c in cat_var) { # c <- cat_var[1]
     var_level <- unique(train_set[, c])
@@ -397,7 +394,8 @@ if (!exists("stop_analysis1")) {
     
     grid <- function(x, y, len = NULL, search = "grid") {
       if (search == "grid") {
-        out <- expand.grid(cost = 2^((1:len) - 3), degree = 1:len, gamma = 1/4)
+        out <- expand.grid(cost = 2^((1:len) - 3), degree = 1:2, 
+                           gamma = c(0.2, 0.23, 0.25, 0.27, 0.3))
       } else {
         out <- data.frame(cost = 2^runif(len, min = -5, max = 10), 
                           degree = 1:len, gamma = 1/4)
@@ -444,39 +442,117 @@ if (!exists("stop_analysis1")) {
   # 
   
   # 1. Train options------------
-  # input value switch
   svm_control <- trainControl(
-    method = valid_method,
+    method = "cv", #valid_method,
     number = ifelse(grepl("cv", valid_method), fold, 1),
     repeats = ifelse(grepl("[d_]cv$", valid_method), iter, NA),
     search = search_method,
     savePredictions = TRUE,
-    classProbs = TRUE,
+    classProbs = ifelse(analysis_type == "C-classification", TRUE, FALSE),
     verboseIter = TRUE)
   
-  dep_var_level <- levels(train_set[, dep_var])
-  if (analysis_type == "C-classification" && !is.na(as.numeric(dep_var_level))) {
-    for (l in dep_var_level) {
-      levels(train_set$hyp)[levels(train_set$hyp) == l] <- paste0("X", l)
-    }
+  # parameter combination
+  if (search_method == "grid") {
+    params <- svm_slot$grid(len = tune_len, search = search_method)
+  } else if (search_method == "random") {
+    params <- svm_slot$random(len = tune_len, search = search_method)
+  } else { #custom
+    params <- expand.grid(cost = cost, degree = degree, gamma = gamma)
   }
   
-  svm_fit <- train(x = train_set[, indep_var],
+  # when to apply resampling method for training
+  if (valid_method == "split") {
+    svm_fit_list <- lapply(
+      1:nrow(params),
+      function (i) {
+        res <- svm(x = train_set[, indep_var],
                    y = train_set[, dep_var],
-                   method = svm_slot,
-                   tuneLength = tune_len,
-                   trControl = svm_control,
-                   preProcess = NULL,
-                   weights = NULL,
-                   # the dots
-                   standardize = standardize, 
-                   kernel = kernel, 
-                   analysis_type = analysis_type)
-  
-  if (class(svm_fit) == "try-error") {
-    stop_analysis2 <- c()
-    R2HTML::HTML(R2HTML::as.title("Warnings"), HR = 2, file = local_output)
-    R2HTML::HTML(svm_fit, file = local_output)
+                   type = analysis_type,
+                   scale = standardize, 
+                   kernel = kernel,
+                   cost = params[i, ]$cost,
+                   degree = params[i, ]$degree,
+                   gamma = params[i, ]$gamma,
+                   probability = TRUE)
+        return(res)
+      })
+    
+    # beta0 <- - svm_fit_list[[1]]$rho
+    # svm_fit_list[[1]]$coefs * valid_set[, indep_var]
+    
+    if (exists("change_level")) {
+      for (l in levels(valid_set[, dep_var])) {
+        levels(valid_set[, dep_var])[levels(valid_set[, dep_var]) == l] <- paste0("X", l)
+      }
+    }
+    valid_fitted <- sapply(svm_fit_list, 
+                           function (x) { svm_slot$predict(x, valid_set[, indep_var]) })
+    fitted_smmry <- apply(valid_fitted, 2, postResample, obs = valid_set[, dep_var])
+    fit_result <- data.frame(params,
+                             Accuracy = fitted_smmry[1, ],
+                             Kappa = fitted_smmry[2, ])
+    svm_fit <- list()
+    acc_order <- order(fit_result$Accuracy, decreasing = TRUE)
+    svm_fit$results <- fit_result[acc_order, ]
+    svm_fit$bestTune <- fit_result[1, parameters$parameters]
+    svm_fit$finalModel <- svm_fit_list[[acc_order[1]]]
+    
+  } else if (valid_method == "none") {
+    svm_fit_list <- lapply(
+      1:nrow(params),
+      function (i) {
+        res <- svm(x = train_set[, indep_var],
+                   y = train_set[, dep_var],
+                   type = analysis_type,
+                   scale = standardize, 
+                   kernel = kernel,
+                   cost = params[i, ]$cost,
+                   degree = params[i, ]$degree,
+                   gamma = params[i, ]$gamma,
+                   probability = TRUE)
+        return(res)
+      })
+    
+    train_fitted <- sapply(svm_fit_list, function (x) { x$fitted })
+    fitted_smmry <- apply(train_fitted, 2, postResample, obs = train_set[, dep_var])
+    fit_result <- data.frame(params, 
+                             Accuracy = fitted_smmry[1, ],
+                             Kappa = fitted_smmry[2, ])
+    svm_fit <- list()
+    acc_order <- order(fit_result$Accuracy, decreasing = TRUE)
+    svm_fit$results <- fit_result[acc_order, ]
+    svm_fit$bestTune <- fit_result[1, parameters$parameters]
+    svm_fit$finalModel <- svm_fit_list[[acc_order[1]]]
+    
+  } else { # resampling by caret package
+    
+    # caret package allow to have reference category as letters
+    dep_var_level <- levels(train_set[, dep_var])
+    if (analysis_type == "C-classification" && !is.na(as.numeric(dep_var_level))) {
+      change_level <- c()
+      for (l in dep_var_level) {
+        levels(train_set[, dep_var])[levels(train_set[, dep_var]) == l] <- paste0("X", l)
+      }
+    }
+    
+    svm_fit <- train(x = train_set[, indep_var],
+                     y = train_set[, dep_var],
+                     method = svm_slot,
+                     tuneLength = tune_len,
+                     trControl = svm_control,
+                     tuneGrid = params,
+                     preProcess = NULL,
+                     weights = NULL,
+                     # the dots
+                     standardize = standardize, 
+                     kernel = kernel, 
+                     analysis_type = analysis_type)
+    
+    if (class(svm_fit) == "try-error") {
+      stop_analysis2 <- c()
+      R2HTML::HTML(R2HTML::as.title("Warnings"), HR = 2, file = local_output)
+      R2HTML::HTML(svm_fit, file = local_output)
+    }
   }
 }
 
@@ -486,7 +562,7 @@ if (!exists("stop_analysis1") & !exists("stop_analysis2")) {
   # Data Structure
   R2HTML::HTML(R2HTML::as.title("Data Structure"), HR = 2, file = local_output)
   
-  DS <- DStr(raw_dat, c(dep_var, indep_var, split_var), 2)
+  DS <- DStr(raw_dat, c(dep_var, indep_var, partition_var), 2)
   R2HTML::HTML(DS, file = local_output, align = "left")
   
   # Variable List
@@ -504,11 +580,11 @@ if (!exists("stop_analysis1") & !exists("stop_analysis2")) {
                             conti_var[i], raw_dat[, conti_var[i]]))
     }
   }
-  if (!is.null(split_var)) {
-    VL <- rbind(VL, VList("Split Variable", split_var, raw_dat[, split_var]))
+  if (!is.null(partition_var)) {
+    VL <- rbind(VL, VList("Partition Variable", partition_var, raw_dat[, partition_var]))
   }
-  
   R2HTML::HTML(VL, file = local_output, align = "left")
+  
   R2HTML::HTML(R2HTML::as.title("Analysis Description"), HR = 2, file = local_output)
   if (analysis_type == "C-classification") { anal_method <- "C-classification" }
   if (analysis_type == "eps-regression") { anal_method <- "EPS-regression" }
@@ -518,32 +594,31 @@ if (!exists("stop_analysis1") & !exists("stop_analysis2")) {
   AD <- matrix(c("Fitted model", paste(dep_var, paste(indep_var, collapse = "+"), sep = "~")),
                nrow = 1, ncol = 2, byrow = TRUE)
   AD <- rbind(AD, matrix(c("Analysis method", anal_method), nrow = 1, ))
-  tune_param <- lapply(parameters$parameters, 
-                       function (x) { paste(c(x, "= ", get(x)), collapse = "") })
-  AD <- rbind(AD, matrix(c("Kernel function", 
-                           paste(c(kern_method, 
+  AD <- rbind(
+    AD, 
+    matrix(c("Kernel function", paste(c(kern_method, 
                                    " (", 
-                                   paste(unlist(tune_param), collapse = ", "), 
+                                   paste(parameters$label, collapse = ", "), 
                                    ")"), collapse = "")),
-                         nrow = 1, ncol = 2, byrow = TRUE))
+           nrow = 1, ncol = 2, byrow = TRUE))
   AD <- rbind(AD, matrix(c("Search method", search_method),
                          nrow = 1, ncol = 2, byrow = TRUE))
-  AD <- rbind(AD, matrix(c("Data partition", ifelse(split_method == "use_all", FALSE, TRUE)),
+  AD <- rbind(AD, matrix(c("Data partition", ifelse(partition_method == "use_all", FALSE, TRUE)),
                          nrow = 1, ncol = 2, byrow = TRUE))
-  if (split_method == "use_all") {
+  if (partition_method == "use_all") {
     AD <- rbind(
       AD, matrix(c("Data partition method", 
                    paste("[Using all data as training data] Train : 100% (n=", 
                          nrow(train_set), ")", sep = "")),
                  nrow = 1, ncol = 2, byrow = TRUE))
-  } else if (split_method == "by_random") {
+  } else if (partition_method == "by_random") {
     AD <- rbind(
       AD, matrix(c("Data partition method",
                    paste("[Split by random] Train : ", p_train, "% (n=",
                          nrow(train_set), ") / Test : ", 100 - p_train, "% (n=",
                          nrow(test_set), ")", sep = "")),
                  nrow = 1, ncol = 2, byrow = TRUE))
-  } else if (split_method == "by_variable") {
+  } else if (partition_method == "by_variable") {
     if (!exists("test_set")) { # 이 경우는 어떤 경우지?
       AD <- rbind(
         AD, matrix(c("Data partition method", 
@@ -585,51 +660,343 @@ if (!exists("stop_analysis1") & !exists("stop_analysis2")) {
   if (nrow(obs_unchecked_data) == nrow(obs_checked_data)) {
     R2HTML::HTML(AD, file = local_output, align = "left")
   } else {
-    if (exists("test_Set") & exists("train_set")) {
+    if (exists("test_set") & exists("train_set")) {
       R2HTML::HTML(AD, file = local_output, align = "left",
                    caption = paste("<div style=text-align:left><small>",
                                    "* Number of missing at train / test dataset : ",
-                                   nrow(obs_checked_data) - nrow(obs_unchecked_data),
+                                   nrow(obs_unchecked_data) - nrow(obs_checked_data),
                                    "</small>", sep = ""))
     } else {
       R2HTML::HTML(AD, file = local_output, align = "left",
                    caption = paste("<div style=text-align:left><small>",
                                    "* Number of missing at train : ",
-                                   nrow(obs_checked_data) - nrow(obs_unchecked_data),
+                                   nrow(obs_unchecked_data) - nrow(obs_checked_data),
                                    "</small>", sep = ""))
     }
   }
   
-  R2HTML::HTML(R2HTML::as.title("Results of Support Vector Machine (SVM)"),
-               HR = 2, file = local_output)
+  R2HTML::HTML(R2HTML::as.title("Results of Support Vector Machine (SVM)"), HR = 2, file = local_output)
   
-  
-  # resampling method써서 나오는 결과에 맞게 validation을 training set 분할해서 하는 경우
-  # 도 짜놓기. 어떤결과를 어떻게 사용할 것인지에 따라 다름
   if (valid_method == "split") {
-    # Not yet implemented
+    R2HTML::HTML(as.title("Validation using training dataset by random split"), HR = 3, file = local_output)
+  } else if (valid_method == "none") {
+    R2HTML::HTML(as.title("Training result"), HR = 3, file = local_output)
+  } else {
+    if (valid_method == "cv") {
+      if (fold > nrow(train_set)) {
+        warn_valid1 <- paste0("<li> Warning : The number of folds cannot be greater than ",
+                              "the number of non-missing observations. (# of non-misssing ",
+                              "observations: ", nrow(train_set), ", # of folds specified by ",
+                              "user: ", fold, ", readjusted # of folds: ", nrow(train_set), ")")
+        fold <- nrow(train_set)
+      }
+      R2HTML::HTML(as.title(paste0(fold, "-Fold Cross Validation")), HR = 3, file = local_output)
+    } else if (valid_method == "LOOCV") {
+      R2HTML::HTML(R2HTML::as.title("Leave-One-Out Cross Validation"), HR = 3, file = local_output)
+    } else {
+      # other resampling method not yet implemented
+    }
   }
   
   if (exists("test_set")) {
-    predicted <- predict(svm_fit$finalModel, test_set[, indep_var])
+    test_pred <- predict(svm_fit$finalModel, test_set[, indep_var])
+    if (exists("change_level")) {
+      for (l in levels(test_pred)) {
+        levels(test_pred)[levels(test_pred) == l] <- unlist(strsplit(l, split = ""))[2]
+      }
+    }
   }
   
+  # TEST SET EVALUDATION
+  # 4. accuracy/gamma, degree, 
+  # 5. train, test, validation : cv사용하면 각 fold별로 어떻게 그림을 그릴 수 있는지?
+  
+  # Confusion matrix for [TEST DATASET]
+  if (exists("test_set")) {
+    if (analysis_type == "C-classification") {
+      test_conf <- try(confusionMatrix(test_pred, as.factor(test_set[, dep_var])), silent = TRUE)
+      
+      test_confmat <- test_conf$table
+      colnames(test_confmat) <- rownames(test_confmat) <- paste("Class: ", colnames(test_confmat))
+      
+      test_eval_metric <- as.matrix(round(test_conf$overall, 4))
+      test_eval_metric <- test_eval_metric[c("Accuracy", "AccuracyLower", "AccuracyUpper", "AccuracyNull",
+                                             "AccuracyPValue", "Kappa", "McnemarPValue"), , drop = FALSE]
+      rownames(test_eval_metric) <- c("Acc", "LCI_Acc", "UCI_Acc", "NIR", "P-value<sup>1</sup>",
+                                      "Kappa", "P-value<sup>2</sup>")
+      
+      test_acc <- test_conf$byClass
+      if (sum(nrow(test_confmat) == nrow(test_acc)) == 1) {
+        test_acc <- format(round(t(as.matrix(test_acc)), 4), 
+                           scientific = FALSE, digits = 4, nsmall = 4)
+      } else {
+        # 이부분 다시 보기 필요
+        test_acc <- format(round(as.matrix(test_acc), 4), 
+                           scientific = FALSE, digits = 4, nsmall = 4)
+        colnames(test_acc)[1:ncol(test_acc)] <- rownames(test_confmat)[1:ncol(test_acc)]
+      }
+    } else { # For regression
+      test_obs <- test_set[, dep_var]
+      test_resid <- test_pred - test_obs
+      
+      test_mse <- mean(test_resid^2, na.rm = TRUE)
+      test_rmse <- sqrt(test_mse)
+      test_mae <- mean(abs(test_resid), na.rm = TRUE)
+      test_mape <- mean(abs(test_resid / test_obs)) * 100
+      test_rsq <- cor(test_pred, test_obs, use = "complete.obs")
+    }
+  }
+  
+  # VALIDATION 도 필요하나? train/validation 을 비교해야하나? train/test 를 비교해야하나?
+  # 찾아봐야할듯
+  # Confusion matrix for [TRAINING DATASET]
+  train_pred <- predict(svm_fit$finalModel, train_set[, indep_var])
   if (analysis_type == "C-classification") {
-    test_confmat <- try(confusionMatrix(predicted, as.factor(test_set[, dep_var])), silent = TRUE)
-    test_confmat
+    train_conf <- try(confusionMatrix(train_pred, as.factor(train_set[, dep_var])), silent = TRUE)
+    
+    train_confmat <- train_conf$table
+    colnames(train_confmat) <- rownames(train_confmat) <- paste("Class: ", colnames(train_confmat))
+    
+    train_eval_metric <- as.matrix(round(train_conf$overall, 4))
+    train_eval_metric <- train_eval_metric[c("Accuracy", "AccuracyLower", "AccuracyUpper", "AccuracyNull",
+                                             "AccuracyPValue", "Kappa", "McnemarPValue"), , drop = FALSE]
+    rownames(train_eval_metric) <- c("Acc", "LCI_Acc", "UCI_Acc", "NIR", "P-value<sup>1</sup>",
+                                    "Kappa", "P-value<sup>2</sup>")
+    train_acc <- train_conf$byClass
+    if (sum(nrow(train_confmat) == nrow(train_acc)) == 1) {
+      train_acc <- format(round(t(as.matrix(train_acc)), 4),
+                          scientific = FALSE, digits = 4, nsmall = 4)
+    } else {
+      train_acc <- format(round(as.matrix(train_acc), 4),
+                          scientific = FALSE, digits = 4, nsmall = 4)
+      colnames(train_acc)[1:ncol(train_acc)] <- rownames(train_confmat)[1:ncol(train_acc)]
+    }
+  } else {
+    train_obs <- train_set[, dep_var]
+    train_resid <- train_pred - train_obs
+    
+    train_mse <- mean(train_resid^2, na.rm = TRUE)
+    train_rmse <- sqrt(train_mse)
+    train_mae <- mean(abs(train_resid), na.rm =  TRUE)
+    train_mape <- mean(abs(train_resid / train_obs)) * 100
+    train_rsq <- cor(train_pred, train_obs, use = "complete.obs")
   }
   
+  # Aggregate training/test confusion matrix
+  if (analysis_type == "C-classification") {
+    R2HTML::HTML(as.title("Confusion Matrix"), HR = 4, file = local_output)
+    
+    if (exists("test_acc")) {
+      confmat <- matrix(NA, nrow(test_confmat) + nrow(train_confmat) + 5, ncol(test_confmat) + 1)
+      confmat[c(1, nrow(train_confmat) + 4), 1] <- c("<b>train dataset<b>", "<b>test dataset<b>")
+      confmat[2, 2:(ncol(train_confmat) + 1)] <- colnames(train_confmat)
+      confmat[3:(nrow(train_confmat) + 2), 1] <- rownames(train_confmat)
+      confmat[3:(nrow(train_confmat) + 2), 2:(ncol(train_confmat) + 1)] <- train_confmat
+      confmat[(nrow(train_confmat) + 2 + 3), 2:ncol(confmat)] <- colnames(test_confmat)
+      confmat[(nrow(train_confmat) + 2 + 4):nrow(confmat), 1] <- rownames(test_confmat)
+      confmat[(nrow(train_confmat) + 2 + 4):nrow(confmat), 2:ncol(confmat)] <- test_confmat
+    } else {
+      confmat <- matrix(NA, nrow(train_confmat) + 2, ncol(train_confmat) + 1)
+      confmat[1, 1] <- "<b>train dataset<b>"
+      confmat[2, 2:ncol(confmat)] <- colnames(train_confmat)
+      confmat[3:nrow(confmat), 1] <- rownames(train_confmat)
+      confmat[3:nrow(confmat), 2:ncol(confmat)] <- train_confmat
+      confmat[is.na(confmat)] <- ""
+    }
+    
+    R2HTML::HTML(confmat, file = local_output, align = "left", row.names = FALSE,
+                 caption = paste0("<div style= 'text-align:left'> <small>* Row : Predicted class ",
+                                  "<br>* Column : True class</small>"))
+    R2HTML::HTML(as.title("Overall Statistics"), HR = 4, file = local_output)
+    
+    if (exists("test_eval_metric")) {
+      eval_metric <- cbind(train_eval_metric, test_eval_metric)
+      colnames(eval_metric) <- c("train dataset", "test dataset")
+    } else {
+      eval_metric <- train_eval_metric
+      colnames(eval_metric) <- "train dataset"
+    }
+    
+    R2HTML::HTML(eval_metric, file = local_output, align = "left", digits = 4, row.names = FALSE,
+                 caption = paste0('<div style="text-align:left"> <small>* Acc = Accuracy ',
+                                  '<br>* LCI_Acc = Lower Bound of 95% CI for Accuracy ',
+                                  '<br>* UCI_Acc = Upper bound of 95% CI for Accuracy ',
+                                  '<br>* NIR = No Information Rate <br>* p-value<sup>1</sup> = p-value for Acc > NIR ',
+                                  '<br>* p-value<sup>2</sup> = p-value for Mcnemars test</small>'))
+    R2HTML::HTML(as.title("Statistics by Class"), HR = 4, file = local_output)
+    
+    if (exists("test_acc")) {
+      acc <- matrix(NA, nrow(test_acc) + nrow(train_acc) + 5, ncol(test_acc) + 1)
+      acc[c(1, nrow(train_acc) + 4), 1] <- c("<b>train dataset<b>", "<b>test dataset<b>")
+      acc[2, 2:(ncol(train_acc) + 1)] <- colnames(train_acc)
+      acc[3:(nrow(train_acc) + 2), 1] <- rownames(train_acc)
+      acc[3:(nrow(train_acc) + 2), 2:(ncol(train_acc) + 1)] <- train_acc
+      acc[(nrow(train_acc) + 2 + 3), 2:ncol(acc)] <- colnames(test_acc)
+      acc[(nrow(train_acc) + 2 + 4):nrow(acc), 1] <- rownames(test_acc)
+      acc[(nrow(train_acc) + 2 + 4):nrow(acc), 2:ncol(acc)] <- test_acc
+      acc[is.na(acc)] <- ""
+    } else {
+      acc <- matrix(NA, nrow(train_acc) + 2, ncol(train_acc) + 1)
+      acc[1, 1] <- "<b>train dataset<b>"
+      acc[2, 2:ncol(acc)] <- colnames(train_acc)
+      acc[3:nrow(acc), 1] <- rownames(train_acc)
+      acc[3:nrow(acc), 2:ncol(acc)] <- train_acc
+      acc[is.na(acc)] <- ""
+    }
+    
+    R2HTML::HTML(acc, file = local_output, align = "left", digits = 4)
+    
+    class_res_df <- train_set
+    # class_res_df$pred <- svm_fit$finalModel$fitted
+    # tiles <- c('1' = 'magenta', '-1' = 'cyan')
+    fine_grid <- as.data.frame(expand.grid(class_res_df$matage, class_res_df$bweight))
+    fine_grid$pred <- predict(svm_fit$finalModel, newdata = fine_grid, type = "decision")
+    fine_grid <- fine_grid %>% dplyr::rename(matage = "Var1", bweight = "Var2")
+    
+    REx_ANA_PLOT()
+    # ggp <- ggplot() + 
+    #   geom_point(data = fine_grid, aes(x = matage, y = bweight, colour = pred), alpha = 0.25) + 
+    #   stat_contour(data = fine_grid, aes(x = matage, y = bweight, z = as.integer(pred)),
+    #                lineend = "round", linejoin = "round", linemitre = 1, size = 0.25, colour = "black") + 
+    #   geom_point(data = train_set, aes(x = matage, y = bweight, colour = hyp, shape = hyp)) + 
+    #   ggtitle("SVM decision boundaries for leaf length vs. leaf width") + 
+    #   labs(x = "matage", y = "hyp", colour = "class", shape = "class") + 
+    #   theme(plot.title = element_text(hjust = 0.5))
+    
+    
+    # heatmap related to Accuracy
+    heatmap_data <- svm_fit$results[svm_fit$results$degree == 1, c("cost", "gamma", "Accuracy")]
+    REx_ANA_PLOT()
+    ggp_hm <- ggplot(heatmap_data, aes(cost, gamma, fill = Accuracy)) + 
+      ggtitle("Performance of Support Vector Classification") + 
+      geom_tile() + 
+      scale_fill_gradient(low = "blue", high = "white") 
+    ggp_hm <- REx_GraphicsGOset(ggp_hm)
+    print(rexAnaImage <<- ggp_hm)
+    REx_ANA_PLOT_OFF("")
+    
+  } else { # for regression
+    eval_metric <- format(
+      data.frame(MSE = train_mse, RMSE = train_rmse, 
+                 MAE = train_mae, MAPE = train_mape, Rsquared = train_rsq),
+      scientific = FALSE, digits = 4, nsmall = 4)
+    rownames(eval_metric) <- "Train"
+    if (exists("test_set")) {
+      eval_metric <- rbind(
+        eval_metric,
+        data.frame(MSE = test_mse, RMSE = test_rmse,
+                   MAE = test_mae, MAPE = test_mape, Rsquared = test_rsq),
+        scientific = FALSE, digits = 4, nsmall = 4)
+      rownames(eval_metric)[2] <- "Test"
+    }
+    
+    R2HTML::HTML(t(eval_metric), file = local_output, align = "left", digits = 15)
+    R2HTML::HTML(as.title("Comparision Plot (Train)"), HR = 5, file = local_output)
+    
+    REx_ANA_PLOT()
+    ggp <- ggplot(data = data.frame(x = train_pred, y = train_obs), aes(x = x, y = y)) + 
+      geom_point() + geom_abline(intercept = 0, slope = 1) + 
+      labs(x = "Predicted", y = "Observed", 
+           title = "Comparison between predicted values and observed values") + 
+      theme_bw() + theme(panel.grid = element_blank())
+    ggp <- REx_GraphicsGOset(ggp)
+    print(rexAnaImage <<- ggp)
+    REx_ANA_PLOT_OFF("")
+    
+    if (exists("test_set")) {
+      R2HTML::HTML(as.title("Comparison Plot (Test)"), HR = 5, file = local_output)
+      
+      REx_ANA_PLOT()
+      ggp_test <- ggplot(data = data.frame(x = test_pred, y = test_obs), aes(x = x, y = y)) +
+        geom_point() + geom_abline(intercept = 0, slope = 1) + 
+        labs(x = "Predicted", y = "Observed",
+             title = "Comparison between predicted values and observed values") + 
+        theme_bw() + theme(panel.grid = element_blank())
+      ggp_test <- REx_GraphicsGOset(ggp_test)
+      print(rexAnaImage <<- ggp_test)
+      REx_ANA_PLOT_OFF("")
+      
+      # only for there is one independent variable. 
+      REx_ANA_PLOT()
+      ggp_svr <- ggplot() + 
+        geom_point(aes(x = test_set[, indep_var[1]], y = test_set[, dep_var]), colour = "red") + 
+        geom_smooth(aes(x = test_set[, indep_var[1]], y = test_pred), colour = "blue") +
+        ggtitle("Support vector regression result plot when there is one independent variable") + 
+        labs(x = indep_var[1], y = dep_var) + 
+        theme_bw() + theme(panel.grid = element_blank())
+      ggp_svr <- REx_GraphicsGOset(ggp_svr)
+      print(rexAnaImage <<- ggp_svr)
+      REx_ANA_PLOT_OFF("")
+      
+      
+      # heatmap related to RMSE
+      heatmap_data <- svm_fit$results[svm_fit$results$degree == 1, c("cost", "gamma", "RMSE")]
+      REx_ANA_PLOT()
+      ggp_hm <- ggplot(heatmap_data, aes(cost, gamma, fill = RMSE)) + 
+        ggtitle("Performance of Support Vector Regression") + 
+        geom_tile() + 
+        scale_fill_gradient(low = "blue", high = "white") 
+      ggp_hm <- REx_GraphicsGOset(ggp_hm)
+      print(rexAnaImage <<- ggp_hm)
+      REx_ANA_PLOT_OFF("")
+    }
+  }
+  
+  
+  # FINAL PARAMETER SUMMARY
+  # final parameter information according to kernel function
+  if (length(svm_fit) == 1 & all(class(svm_fit) == "try-error")) {
+    R2HTML::HTML(R2HTML::as.title("Warnings"), HR = 4, file = local_output)
+    # 추가로 더 짜야함
+  } else {
+    svm_res <- svm_fit$results
+    eval_stat <- colnames(svm_res)[!colnames(svm_res) %in% parameters$parameters]
+    res <- svm_res[, c(parameters$parameters, eval_stat)]
+    colnames(res)[1:length(parameters$parameters)] <- parameters$label
+    
+    final_param <- unlist(lapply(parameters$label, function (x) { paste(c(x, " = "), collapse = "") }))
+    final_param <- paste0(final_param, svm_fit$bestTune, collapse = ", ")
+    
+    if (analysis_type == "C-classification") {
+      res_info <- paste("<li> <strong>Accuracy</strong> was used to select the",
+                        " optimal model using the largest value. ",
+                        "<br><li> The final value used for the model were ",
+                        "<strong>", final_param, "</strong>.", sep = "")
+    } else { # regression
+      res_info <- paste("<li> <strong>RMSE</strong> was used to select the",
+                        " optimal model using the smallest value. ",
+                        "<br><li> The final value used for the model were ",
+                        "<strong>", final_param, "</strong>.", sep = "")
+    }
+    R2HTML::HTML(as.title("Hyper parameters"), HR = 4, file = local_output)
+    R2HTML::HTML(res, file = local_output, align = "left", digits = 4, row.names = FALSE)
+    R2HTML::HTML(res_info, file = local_output, align = "left")
+    if (exists("warn_valid")) { R2HTML::HTML(warn_valid, file = local_output) }
+  }
+  
+  # Used R Packages
+  R2HTML::HTML(R2HTML::as.title("Used R Packages"), HR = 2, file = local_output)
+  pkg_list <- list(list("Support vector machine (SVM)", "svm", "e1071"))
+  if (valid_method != "none") {
+    pkg_list$validation <- list("Validation", c("trainControl", "train"), c("caret", "caret"))
+    if (analysis_type == "C-classification") { 
+      pkg_list$Partition <- list("Confusion matrix", "confusionMatrix", "caret")
+    }
+  }
+  if (partition_method != "use_all") {
+    pkg_list$predict <- list("Prediction using test set", "predict", "stats")
+  }
+  R2HTML::HTML(used.pkg(pkg.list = pkg_list), file = local_output)
 }
 
-#####
+# Time Track for Analysis
+R2HTML::HTMLhr(file = local_output)
+R2HTML::HTML(paste("Analysis is finished at ", Sys.time(), ". REx : SVM anlaysis", sep = ""), file = local_output)
 
-# 0. Caret Customized Functions-------
-# Required list: type, library, parameters, grid, fit, predict, prob
-# polymonial: degree, coef0
-# sigmoid: coef0, gamma
-# radial: gamma
-# linear:
-
-
+# if (exists("O")) {
+#   return(list(html = html.output, Output = O))
+# } else {
+#   return(html.output)
+# }
 
 # })
