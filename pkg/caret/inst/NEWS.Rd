@@ -3,6 +3,23 @@
 \newcommand{\cpkg}{\href{https://CRAN.R-project.org/package=#1}{\pkg{#1}}}
 \newcommand{\issue}{\href{https://github.com/topepo/caret/issues/#1}{(issue #1)}}
 
+\section{Changes in version 6.0-90}{
+  \itemize{
+   \item A \code{ptype} element was added to \code{train} objects that records the trianing set predictor columns and their types using a zero-row slice.
+   \item Updated the internal object containing the subsampling information. The old package dependencies were being used.
+   }
+}
+
+\section{Changes in version 6.0-89}{
+  \itemize{
+   \item SMOTE subsampling is now computed via the \cpkg{themis} package \issue{1226}.
+   \item For SA feature selection, a better warning is given when there are too few iterations for computing differences \issue{1247}.
+   \item Better error message when pacakges are missing \issue{1246}.
+   \item \cpkg{e1071} was promoted from Suggests to Imports \issue{1238}.
+  }
+}
+
+
 \section{Changes in version 6.0-88}{
   \itemize{
    \item Fixed cases where the "corr" filter was not run in \code{preProcess()}.

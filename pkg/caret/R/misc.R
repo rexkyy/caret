@@ -447,7 +447,7 @@ parse_sampling <- function(x, check_install = TRUE) {
                 func = sampling_methods[x][[1]],
                 first = TRUE)
     }
-    pkgs <- switch(x$name, rose = "ROSE", smote = "DMwR", "")
+    pkgs <- switch(x$name, rose = "ROSE", smote = "themis", "")
     if(pkgs != "" & check_install)
       checkInstall(pkgs)
   } else {
@@ -832,4 +832,10 @@ parallel_check <- function(pkg, models) {
   flush.console()
 }
 
+# ------------------------------------------------------------------------------
 
+terms_ptype <- function(x, data) {
+  cols <- attr(x, "variables")[-2]
+  cols <- all.vars(cols)
+  data[0, cols, drop = FALSE]
+}
