@@ -103,7 +103,8 @@ nominalTrainWorkflow <- function(x, y, wts, info, method, ppOpts, ctrl, lev, tes
       if(!is.null(info$submodels[[parm]]) && nrow(info$submodels[[parm]]) > 0) {
         submod <- info$submodels[[parm]]
       } else submod <- NULL
-
+      
+      # Original
       # mod <- try(
       #   createModel(x = subset_x(x, modelIndex),
       #               y = y[modelIndex],
@@ -116,6 +117,20 @@ nominalTrainWorkflow <- function(x, y, wts, info, method, ppOpts, ctrl, lev, tes
       #               sampling = ctrl$sampling,
       #               ...),
       #   silent = TRUE)
+      # For SVM
+      # mod <- try(
+      #   createModel(x = subset_x(x, modelIndex),
+      #               y = y[modelIndex],
+      #               wts = wts[modelIndex],
+      #               method = method,
+      #               tuneValue = info$loop[parm,,drop = FALSE],
+      #               obsLevels = lev,
+      #               pp = ppp,
+      #               classProbs = ctrl$classProbs,
+      #               sampling = ctrl$sampling,
+      #               kern_type = kern_type,
+      #               machine_type = machine_type),
+      #   silent = TRUE)
       mod <- try(
         createModel(x = subset_x(x, modelIndex),
                     y = y[modelIndex],
@@ -125,10 +140,9 @@ nominalTrainWorkflow <- function(x, y, wts, info, method, ppOpts, ctrl, lev, tes
                     obsLevels = lev,
                     pp = ppp,
                     classProbs = ctrl$classProbs,
-                    sampling = ctrl$sampling,
-                    kern_type = kern_type,
-                    machine_type = machine_type),
+                    sampling = ctrl$sampling),
         silent = TRUE)
+      
 
       if(testing) print(mod)
 

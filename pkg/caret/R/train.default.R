@@ -701,14 +701,20 @@ train.default <- function(x, y,
           #### resampling method별로 약간의 variation 을 줘서 모델을 train 하도록 작성된듯 한데..
           #### nominalLTrainworkflow  함수 작동원리는 나중에 알아보고 우선 담번에
           #### 여기서부터!!!!!! 210721
+          # original function
           # tmp <- nominalTrainWorkflow(x = x, y = y, wts = weights,
           #                             info = trainInfo, method = models,
           #                             ppOpts = preProcess, ctrl = trControl, lev = classLevels, ...)
+          # For SVM
+          # tmp <- nominalTrainWorkflow(x = x, y = y, wts = weights,
+          #                             info = trainInfo, method = models,
+          #                             ppOpts = preProcess, ctrl = trControl, lev = classLevels,
+          #                             kern_type = kern_type,
+          #                             machine_type = machine_type)
           tmp <- nominalTrainWorkflow(x = x, y = y, wts = weights,
                                       info = trainInfo, method = models,
-                                      ppOpts = preProcess, ctrl = trControl, lev = classLevels,
-                                      kern_type = kern_type,
-                                      machine_type = machine_type)
+                                      ppOpts = preProcess, ctrl = trControl, lev = classLevels)
+          
           performance <- tmp$performance
           resampleResults <- tmp$resample
         } else {

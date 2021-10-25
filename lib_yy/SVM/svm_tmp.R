@@ -1,6 +1,7 @@
 rm(list=ls())
 
-local_output <- paste0(getwd(), "/lib_yy/SVM/svm_tmp_html_reg.html")
+# local_output <- paste0(getwd(), "/lib_yy/SVM/svm_tmp_html_reg.html")
+local_output <- paste0(getwd(), "/lib_yy/SVM/svm_tmp_html_class.html")
 source(paste0(getwd(), "/lib_yy/rex_lib/graphics.R"), encoding = "UTF-8")
 source(paste0(getwd(), "/lib_yy/rex_lib/common.R"), encoding = "UTF-8")
 # sample dataset
@@ -14,13 +15,13 @@ sample_data$preterm <- as.factor(sample_data$preterm)
 # Input values----------
 dataset <- sample_data
 #Variables Tab
-dep_var <- "gestwks"  #"hyp"
+dep_var <- "hyp" #"gestwks" #
 conti_var <- c("matage", "bweight")
 cat_var <- NULL #c("lowbw", "sex")
 standardize <- FALSE
 
 #Analysis Tab
-analysis_type <- "eps-regression" #"C-classification" # 
+analysis_type <- "C-classification" #"eps-regression" # 
 kernel <- "polynomial" # "linear", "radial", "sigmoid"
 search_method <- "grid" # NULL, "random", "custom"
 tune_len <- 3
@@ -534,28 +535,48 @@ if (!exists("stop_analysis1")) {
         levels(train_set[, dep_var])[levels(train_set[, dep_var]) == l] <- paste0("X", l)
       }
     }
+    load("lib_yy/SVM/svm_clssf_grid_polykern_4cv.RData")
     
-    svm_fit <- train(x = train_set[, indep_var],
-                     y = train_set[, dep_var],
-                     method = svm_slot,
-                     tuneLength = tune_len,
-                     trControl = svm_control,
-                     tuneGrid = params,
-                     preProcess = NULL,
-                     weights = NULL,
-                     # the dots
-                     standardize = standardize, 
-                     kernel = kernel, 
-                     analysis_type = analysis_type)
+    # TEMPORARY DEACTIVATED FOR ANALYSIS LOADING TIME
+    # svm_fit <- train(x = train_set[, indep_var],
+    #                  y = train_set[, dep_var],
+    #                  method = svm_slot,
+    #                  tuneLength = tune_len,
+    #                  trControl = svm_control,
+    #                  tuneGrid = params,
+    #                  preProcess = NULL,
+    #                  weights = NULL,
+    #                  # the dots
+    #                  standardize = standardize, 
+    #                  kernel = kernel, 
+    #                  analysis_type = analysis_type)
     
     if (class(svm_fit) == "try-error") {
       stop_analysis2 <- c()
       R2HTML::HTML(R2HTML::as.title("Warnings"), HR = 2, file = local_output)
       R2HTML::HTML(svm_fit, file = local_output)
     }
+    
+    if (exists("change_level")) {
+      
+      changed_level <- svm_fit$levels
+      svm_fit$levels <- substring(changed_level, 2)
+      origin_level <- as.character(svm_fit$levels)
+      
+      for (l in changed_level) {
+        levels(train_set[, dep_var])[levels(train_set[, dep_var]) == l] <- substring(changed_level[changed_level == l], 2)
+        levels(svm_fit$pred$pred)[levels(svm_fit$pred$pred) == l] <- substring(changed_level[changed_level == l], 2)
+        levels(svm_fit$pred$obs)[levels(svm_fit$pred$obs) == l] <- substring(changed_level[changed_level == l], 2)
+        levels(svm_fit$finalModel$fitted)[levels(svm_fit$finalModel$fitted) == l] <- substring(changed_level[changed_level == l], 2)
+        levels(svm_fit$trainingData$.outcome)[levels(svm_fit$trainingData$.outcome) == l] <- substring(changed_level[changed_level == l], 2)
+      }
+      
+      colnames(svm_fit$pred)[3:(3+length(changed_level)-1)] <- origin_level
+      svm_fit$finalModel$levels <- origin_level
+      svm_fit$finalModel$obsLevels <- svm_fit$levels
+    }
   }
 }
-
 
 if (!exists("stop_analysis1") & !exists("stop_analysis2")) {
   
@@ -698,21 +719,15 @@ if (!exists("stop_analysis1") & !exists("stop_analysis2")) {
     }
   }
   
-  if (exists("test_set")) {
-    test_pred <- predict(svm_fit$finalModel, test_set[, indep_var])
-    if (exists("change_level")) {
-      for (l in levels(test_pred)) {
-        levels(test_pred)[levels(test_pred) == l] <- unlist(strsplit(l, split = ""))[2]
-      }
-    }
-  }
-  
   # TEST SET EVALUDATION
   # 4. accuracy/gamma, degree, 
   # 5. train, test, validation : cv사용하면 각 fold별로 어떻게 그림을 그릴 수 있는지?
   
   # Confusion matrix for [TEST DATASET]
   if (exists("test_set")) {
+    
+    test_pred <- predict(svm_fit$finalModel, test_set[, indep_var])
+    
     if (analysis_type == "C-classification") {
       test_conf <- try(confusionMatrix(test_pred, as.factor(test_set[, dep_var])), silent = TRUE)
       
@@ -749,6 +764,7 @@ if (!exists("stop_analysis1") & !exists("stop_analysis2")) {
   
   # VALIDATION 도 필요하나? train/validation 을 비교해야하나? train/test 를 비교해야하나?
   # 찾아봐야할듯
+  
   # Confusion matrix for [TRAINING DATASET]
   train_pred <- predict(svm_fit$finalModel, train_set[, indep_var])
   if (analysis_type == "C-classification") {
@@ -846,14 +862,17 @@ if (!exists("stop_analysis1") & !exists("stop_analysis2")) {
     
     R2HTML::HTML(acc, file = local_output, align = "left", digits = 4)
     
-    class_res_df <- train_set
-    # class_res_df$pred <- svm_fit$finalModel$fitted
-    # tiles <- c('1' = 'magenta', '-1' = 'cyan')
-    fine_grid <- as.data.frame(expand.grid(class_res_df$matage, class_res_df$bweight))
-    fine_grid$pred <- predict(svm_fit$finalModel, newdata = fine_grid, type = "decision")
-    fine_grid <- fine_grid %>% dplyr::rename(matage = "Var1", bweight = "Var2")
-    
-    REx_ANA_PLOT()
+    if (length(conti_var) == 2) {
+      
+      clssf_plot_df <- data.frame(test_set, pred = test_pred)
+      
+      REx_ANA_PLOT()
+      ggp <- ggplot(data = clssf_plot_df, aes(conti_var[1], conti_var[2], colour = pred)) + 
+        geom_point() + scale_colour_manual(values = c("red", "blue")) 
+      ggp <- REx_GraphicsGOset(ggp)
+      print(rexAnaImage <<- ggp)
+      REx_ANA_PLOT_OFF("")
+    }
     # ggp <- ggplot() + 
     #   geom_point(data = fine_grid, aes(x = matage, y = bweight, colour = pred), alpha = 0.25) + 
     #   stat_contour(data = fine_grid, aes(x = matage, y = bweight, z = as.integer(pred)),
@@ -868,9 +887,10 @@ if (!exists("stop_analysis1") & !exists("stop_analysis2")) {
     heatmap_data <- svm_fit$results[svm_fit$results$degree == 1, c("cost", "gamma", "Accuracy")]
     REx_ANA_PLOT()
     ggp_hm <- ggplot(heatmap_data, aes(cost, gamma, fill = Accuracy)) + 
-      ggtitle("Performance of Support Vector Classification") + 
-      geom_tile() + 
-      scale_fill_gradient(low = "blue", high = "white") 
+      ggtitle("Performance of Support Vector Classification via parameter combinations") + 
+      geom_raster(interpolate = TRUE) + 
+      scale_fill_gradient(low = "white", high = "blue", space = "Lab") + 
+      theme_bw()
     ggp_hm <- REx_GraphicsGOset(ggp_hm)
     print(rexAnaImage <<- ggp_hm)
     REx_ANA_PLOT_OFF("")
@@ -884,9 +904,9 @@ if (!exists("stop_analysis1") & !exists("stop_analysis2")) {
     if (exists("test_set")) {
       eval_metric <- rbind(
         eval_metric,
-        data.frame(MSE = test_mse, RMSE = test_rmse,
+        format(data.frame(MSE = test_mse, RMSE = test_rmse,
                    MAE = test_mae, MAPE = test_mape, Rsquared = test_rsq),
-        scientific = FALSE, digits = 4, nsmall = 4)
+        scientific = FALSE, digits = 4, nsmall = 4))
       rownames(eval_metric)[2] <- "Test"
     }
     
@@ -933,9 +953,10 @@ if (!exists("stop_analysis1") & !exists("stop_analysis2")) {
       heatmap_data <- svm_fit$results[svm_fit$results$degree == 1, c("cost", "gamma", "RMSE")]
       REx_ANA_PLOT()
       ggp_hm <- ggplot(heatmap_data, aes(cost, gamma, fill = RMSE)) + 
-        ggtitle("Performance of Support Vector Regression") + 
-        geom_tile() + 
-        scale_fill_gradient(low = "blue", high = "white") 
+        ggtitle("Performance of Support Vector Regression via parameter combinations") + 
+        geom_raster(interpolate = TRUE) + 
+        scale_fill_gradient(low = "blue", high = "white", space = "Lab") + 
+        theme_bw()
       ggp_hm <- REx_GraphicsGOset(ggp_hm)
       print(rexAnaImage <<- ggp_hm)
       REx_ANA_PLOT_OFF("")
@@ -968,8 +989,8 @@ if (!exists("stop_analysis1") & !exists("stop_analysis2")) {
                         "<br><li> The final value used for the model were ",
                         "<strong>", final_param, "</strong>.", sep = "")
     }
-    R2HTML::HTML(as.title("Hyper parameters"), HR = 4, file = local_output)
-    R2HTML::HTML(res, file = local_output, align = "left", digits = 4, row.names = FALSE)
+    R2HTML::HTML(as.title("Hyper parameters printed out top 5"), HR = 4, file = local_output)
+    R2HTML::HTML(res[1:5, ], file = local_output, align = "left", digits = 4, row.names = FALSE)
     R2HTML::HTML(res_info, file = local_output, align = "left")
     if (exists("warn_valid")) { R2HTML::HTML(warn_valid, file = local_output) }
   }

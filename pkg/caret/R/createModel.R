@@ -42,19 +42,29 @@
     y <- tmp$y
     rm(tmp)
   }
-
+  
+  # Original
   # modelFit <- method$fit(x = x,
   #                        y = y, wts = wts,
   #                        param  = tuneValue, lev = obsLevels,
   #                        last = last,
   #                        classProbs = classProbs, ...)
+  # For SVM
+  # modelFit <- method$fit(x = x,
+  #                        y = y, wts = wts,
+  #                        param  = tuneValue, lev = obsLevels,
+  #                        last = last,
+  #                        classProbs = classProbs,
+  #                        kern_type = kern_type,
+  #                        machine_type = machine_type)
   modelFit <- method$fit(x = x,
                          y = y, wts = wts,
                          param  = tuneValue, lev = obsLevels,
                          last = last,
-                         classProbs = classProbs,
-                         kern_type = kern_type,
-                         machine_type = machine_type)
+                         classProbs = classProbs)
+  
+  
+  
   ## for models using S4 classes, you can't easily append data, so
   ## exclude these and we'll use other methods to get this information
   if(is.null(method$label)) method$label <- ""
