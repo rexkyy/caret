@@ -84,7 +84,7 @@
 #' \code{\link[stats]{binom.test}}
 #' @references Kuhn, M. (2008), ``Building predictive models in R using the
 #' caret package, '' \emph{Journal of Statistical Software},
-#' (\url{https://www.jstatsoft.org/article/view/v028i05/v28i05.pdf}).
+#' (\doi{10.18637/jss.v028.i05}).
 #'
 #' Altman, D.G., Bland, J.M. (1994) ``Diagnostic tests 1: sensitivity and
 #' specificity,'' \emph{British Medical Journal}, vol 308, 1552.
@@ -205,7 +205,6 @@ confusionMatrix.matrix <- function(data,
 #' @export
 confusionMatrix.table <- function(data, positive = NULL,
                                   prevalence = NULL, mode = "sens_spec", ...){
-  requireNamespaceQuietStop("e1071")
   if(!(mode %in% c("sens_spec", "prec_recall", "everything")))
     stop("`mode` should be either 'sens_spec', 'prec_recall', or 'everything'")
   if(length(dim(data)) != 2) stop("the table must have two dimensions")
